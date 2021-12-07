@@ -92,7 +92,7 @@ for s = 1:size(raw)
     raw(s)=nirs.design.change_stimulus_duration(raw(s),'channel_10',10);
     %raw(s).gui
 
-% turncate for quality checking
+% turncate for quality checking--changed for infant pic
     pre_Baseline = 10;
     post_Baseline = 10;
     fs = data.Fs;
@@ -114,7 +114,7 @@ for s = 1:size(raw)
         end
     end
   
-   
+   %%unsure where to change here to match above--do I need to change val?
     onset_firststi = data.stimulus.values{1,val6}.onset(1); 
     %disp(onset_firststi);
     %onset_laststi = data.stimulus.values{1,val7}.onset(10);
@@ -151,17 +151,18 @@ end
 mkdir 'Y:\2_Individual_Projects\RISE_PV1_CannabisCry\Prenatal_Processing\PV2\Cannabis_PV2\NewToolboxUpdated_allGLMmodels' stimremove_turncate
 j = nirs.modules.RemoveStimless();
 
-% Just keep stim events for infant cry (these will change depending on the
+% Just keep stim events for infant pic (these will change depending on the
 % task being analyzed)
 
 j = nirs.modules.KeepStims( j);
-j.listOfStims = {'channel_6', 'channel_7'};  % take a look at the raw data containing condition information, to see whether we can fix the condition information
+j.listOfStims = {'channel_8', 'channel_9','channel_10',};  % take a look at the raw data containing condition information, to see whether we can fix the condition information
 
 % rename stims
 j = nirs.modules.RenameStims( j );
 j.listOfChanges = {
-    'channel_6', 'infantCry'; 
-    'channel_7', 'infantNoise'};
+    'channel_8', 'SadFace'; 
+    'channel_9', 'HappyFace'; 
+    'channel_10', 'NeutralFace'};
 
 % resample to 4Hz
 j = nirs.modules.Resample( j );
@@ -213,8 +214,8 @@ end
 %% Block Average for visualizations only
 mkdir 'Y:\2_Individual_Projects\RISE_PV1_CannabisCry\Prenatal_Processing\PV2\Cannabis_PV2\NewToolboxUpdated_allGLMmodels' blockAverage
 for s = 1:size(hb)
-    HRF=BlockAverage(-1, 19, hb(s),s);  %the parameters of start and end here is based on experimental protocols:Number of Trials: 20 trials
-                              %Trials by Stimuli: 10 trials control cry, 10 trials control noise ? 10s block
+    HRF=BlockAverage(-1, -29, hb(s),s);  %the parameters of start and end here is based on experimental protocols:Number of Trials: 30 trials
+                              %Trials by Stimuli: 10 trials happyfaces, 10 trials sadfaces, 10 trails neutralfaces
                               %Pre/post durations: 10s pre-stim, 10s
                               %post-stim--import block average function and
                               %homer as well
@@ -231,8 +232,9 @@ job1.type = 'AR-IRLS';
 %job1.trend_func = @(t) nirs.design.trend.dctmtx(t, 0.005);
 job1.basis = Dictionary();
 job1.basis('default') = nirs.design.basis.Canonical(); 
-job1.basis('infantCry') = nirs.design.basis.Canonical();
-job1.basis('infantNoise') = nirs.design.basis.Canonical();
+job1.basis('SadFaces') = nirs.design.basis.Canonical();
+job1.basis('HappyFaces') = nirs.design.basis.Canonical();
+job1.basis('NeutralFaces') = nirs.design.basis.Canonical();
 job1.AddShortSepRegressors = false;
 SubjStats = job1.run( hb );
     
