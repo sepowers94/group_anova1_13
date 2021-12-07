@@ -1,0 +1,253 @@
+% 1. change the pipeline order
+% 2. use pre-whitening/DCT trending
+% 3. use FIR as basis function
+% 4. use mixed-effects group level to time-average subject-level 
+% 5. ROI analysis
+% 6. Haven't done ANCOVA yet, need to ask about ANCOVA first
+% 7. raw.probe.defaultdrawfcn='10-20';
+% 8. find(conStats.ttest.p<0.05)
+%figure
+%raw.probe.draw
+%raw.probe.defaultdrawfcn='3D Mesh (top)'; 
+% nirs.io.loadNIRx
+%figure
+%raw.probe.draw
+clear;
+clc;
+
+%% group number
+group_number = 2;
+
+%% load data
+%root_dir = 'Y:\2_Individual Projects\RISE_Depression_fNIRS\Depression_Cont_All_11302020'
+%raw = nirs.io.loadDirectory(root_dir, {'group', 'subject'});
+%raw = nirs.io.loadNIRx(root_dir)
+
+%for visualization
+%root_dir = 'Y:\2_Individual Projects\RISE_Depression_fNIRS\Depression_Cont_11092020';  % The path here needs to be the path where it stores the
+%source files of fnirs data, rather than the coverted .nirs
+%raw = nirs.io.loadNIRx(root_dir);
+%raw.probe.defaultdrawfcn='3D Mesh (top)';
+%raw.probe.draw
+
+root_dir = 'Y:\2_Individual_Projects\RISE_PV1_CannabisCry\Prenatal_Processing\PV2\Cannabis_PV2\NewToolboxUpdated_allGLMmodels'
+raw = nirs.io.loadDirectory(root_dir, {'group','subject'});
+
+%% Create demographics table
+
+demographics = nirs.createDemographicsTable(raw);
+disp(demographics)
+%% Space Registration
+% add an anchor to attach the probe to the center of the forehead (FpZ)
+% TODO: The following code cannot be used for further visualizations yet.
+% Just used for a simple demostration on how to generate 10-20
+% need space registration information here
+% ---------------------------------------------------------------------
+%Name{1}='FpZ';
+%xyz(1,:)=[0 0 0];
+%Type{1}='FID-anchor';  % This is an anchor point
+%Units{1}='mm';
+
+%Now add a few more
+%Name{2}='Cz';
+%xyz(2,:)=[0 100 0];
+%Type{2}='FID-attractor';  % This is an attractor
+%Units{2}='mm';
+
+%Name{3}='T7';
+%xyz(3,:)=[-200 0 0];
+%Type{3}='FID-attractor';  % This is an attractor
+%Units{3}='mm';
+
+%Name{4}='T8';
+%xyz(4,:)=[200 0 0];
+%Type{4}='FID-attractor';  % This is an attractor
+%Units{4}='mm';
+
+% now add these points to the optodes field in the probe. 
+%fid=table(Name',xyz(:,1),xyz(:,2),xyz(:,3),Type',Units',...
+    %'VariableNames',{'Name','X','Y','Z','Type','Units'});
+%raw(1).probe.optodes=[raw(1).probe.optodes; fid];
+
+% Use the default head size
+%probe1020=nirs.util.registerprobe1020(raw(1).probe);
+%probe1020.defaultdrawfcn='10-20';
+%probe1020.draw;
+%close;
+
+%% Quality checking 
+mkdir 'Y:\2_Individual_Projects\RISE_PV1_CannabisCry\Prenatal_Processing\PV2\Cannabis_PV2\NewToolboxUpdated_allGLMmodels' rawdata
+mkdir 'Y:\2_Individual_Projects\RISE_PV1_CannabisCry\Prenatal_Processing\PV2\Cannabis_PV2\NewToolboxUpdated_allGLMmodels' qualitycheck
+for s = 1:size(raw)
+% view each subject's graph
+    data = raw(s);
+    data.draw;
+    saveas(gcf,[root_dir,'\rawdata\sub',num2str(s),'.png'])
+    close;
+    
+% Change stimuli duration
+    %raw(s) = nirs.viz.StimUtil(raw(s));
+    raw(s)=nirs.design.change_stimulus_duration(raw(s),'channel_8',10);
+    raw(s)=nirs.design.change_stimulus_duration(raw(s),'channel_9',10);
+    raw(s)=nirs.design.change_stimulus_duration(raw(s),'channel_10',10);
+    %raw(s).gui
+
+% turncate for quality checking
+    pre_Baseline = 10;
+    post_Baseline = 10;
+    fs = data.Fs;
+    [m,n] = size(data.stimulus.keys);
+    val8 = 8;
+    val9 = 9;
+    val10 = 10;
+    for a = 1:n
+        if strcmp(data.stimulus.keys{1,a}, 'channel_8')
+            val8 = a;
+        end
+        %if data.stimulus.keys{1,a} == 'stim_channel11'
+        if strcmp(data.stimulus.keys{1,a}, 'channel_9')
+            val9 = a;
+        if strcmp(data.stimulus.keys{1,a}, 'channel_10')
+            val10 = a;
+        end
+            break;
+        end
+    end
+  
+   
+    onset_firststi = data.stimulus.values{1,val6}.onset(1); 
+    %disp(onset_firststi);
+    %onset_laststi = data.stimulus.values{1,val7}.onset(10);
+    [z1,z2] = size(data.stimulus.values{1,val7}.onset);
+    display(z1);
+    onset_laststi = data.stimulus.values{1,val7}.onset(z1);
+    
+    data = raw(s).data(round((onset_firststi-pre_Baseline)*fs):round((onset_laststi+post_Baseline)*fs),:);
+
+% quality checking using cv, cv defined as dev/m
+    m = mean(data);
+    dev = std(data);
+    cvThresh = 0.15;  % can be changed
+    cvMask = ones(size(m));
+    cvOutput = ones(size(m));
+    for i = 1:40
+        cv = dev(i)/m(i);
+        %disp(cv)
+        if cv < cvThresh
+            cvMask(i) = 1;
+        else
+            cvMask(i) = 0;
+            disp('bad link:');
+            disp(raw(s).probe.link(i,:));
+        end
+    end
+    T = table(table2array(raw(s).probe.link(:,1)), table2array(raw(s).probe.link(:,2)),table2array(raw(s).probe.link(:,3)), transpose(cvMask));
+    xlswrite([root_dir,'\qualitycheck\sub',num2str(s),'.csv'], table2array(T));
+
+end
+
+%% Prepare the data for preprocessing
+%% Remove stimless files
+mkdir 'Y:\2_Individual_Projects\RISE_PV1_CannabisCry\Prenatal_Processing\PV2\Cannabis_PV2\NewToolboxUpdated_allGLMmodels' stimremove_turncate
+j = nirs.modules.RemoveStimless();
+
+% Just keep stim events for infant cry (these will change depending on the
+% task being analyzed)
+
+j = nirs.modules.KeepStims( j);
+j.listOfStims = {'channel_6', 'channel_7'};  % take a look at the raw data containing condition information, to see whether we can fix the condition information
+
+% rename stims
+j = nirs.modules.RenameStims( j );
+j.listOfChanges = {
+    'channel_6', 'infantCry'; 
+    'channel_7', 'infantNoise'};
+
+% resample to 4Hz
+j = nirs.modules.Resample( j );
+j.Fs = 4;  % Sets the new sample rate to 2Hz (was 10Hz).
+
+% Trim pre and post baseline
+j = nirs.modules.TrimBaseline( j);
+j.preBaseline = 10; %can change these values
+j.postBaseline = 10;
+raw = j.run(raw);
+
+for s = 1:size(raw)
+% view each subject's graph
+    raw(s).draw;
+    saveas(gcf,[root_dir,'\stimremove_turncate\sub',num2str(s),'.png'])
+    close;
+end
+
+%% %% Signal Preprocessing 
+mkdir 'Y:\2_Individual_Projects\RISE_PV1_CannabisCry\Prenatal_Processing\PV2\Cannabis_PV2\NewToolboxUpdated_allGLMmodels' preprocessing
+% motion correction to remove DC-shifts
+jobs = nirs.modules.PCAFilter(); 
+jobs.ncomp=.8
+%jobs.PCA=true;
+hb = jobs.run( raw );
+% visualize results
+for s = 1:size(hb)
+% view each subject's graph
+    hb(s).draw;
+    saveas(gcf,[root_dir,'/preprocessing/sub',num2str(s),'.png'])
+    close;
+end
+%% Run the conversions 
+mkdir 'Y:\2_Individual_Projects\RISE_PV1_CannabisCry\Prenatal_Processing\PV2\Cannabis_PV2\NewToolboxUpdated_allGLMmodels' conversion
+j = nirs.modules.OpticalDensity();
+%% the DFP parameters can be modified in nirs.modules.BeerLamberLaw.m
+
+
+%% %% Convert to hemoglobin
+j = nirs.modules.BeerLambertLaw( j);    
+hb = j.run(hb);
+% Results visualization
+for s = 1:size(hb)
+% view each subject's graph
+    hb(s).draw;
+    saveas(gcf,[root_dir,'\conversion\sub',num2str(s),'.png'])
+    close;
+end
+%% Block Average for visualizations only
+mkdir 'Y:\2_Individual_Projects\RISE_PV1_CannabisCry\Prenatal_Processing\PV2\Cannabis_PV2\NewToolboxUpdated_allGLMmodels' blockAverage
+for s = 1:size(hb)
+    HRF=BlockAverage(-1, 19, hb(s),s);  %the parameters of start and end here is based on experimental protocols:Number of Trials: 20 trials
+                              %Trials by Stimuli: 10 trials control cry, 10 trials control noise ? 10s block
+                              %Pre/post durations: 10s pre-stim, 10s
+                              %post-stim--import block average function and
+                              %homer as well
+               
+    for i = 1:2
+        saveas(gcf,[root_dir,'\blockAverage\sub',num2str(s),'_', num2str(i),'.png'])
+        close;
+    end
+end
+%% 
+% job1: GLM only
+job1 = nirs.modules.GLM();
+job1.type = 'AR-IRLS';
+%job1.trend_func = @(t) nirs.design.trend.dctmtx(t, 0.005);
+job1.basis = Dictionary();
+job1.basis('default') = nirs.design.basis.Canonical(); 
+job1.basis('infantCry') = nirs.design.basis.Canonical();
+job1.basis('infantNoise') = nirs.design.basis.Canonical();
+job1.AddShortSepRegressors = false;
+SubjStats = job1.run( hb );
+    
+%% the parameters can be modified in nirs.design.basis.Canonical
+%% save GLM model
+mkdir 'Y:\2_Individual_Projects\RISE_PV1_CannabisCry\Prenatal_Processing\PV2\Cannabis_PV2\NewToolboxUpdated_allGLMmodels' GLM
+for s = 1:size(transpose(SubjStats))
+    writetable(SubjStats(s).table,[root_dir,'\GLM\sub',num2str(s),'.txt'], 'Delimiter', ' '); 
+    writetable(SubjStats(s).table,[root_dir,'\GLM\sub',num2str(s),'.xls']);
+end
+%% export for 2-nd level analysis
+mkdir 'Y:\2_Individual_Projects\RISE_PV1_CannabisCry\Prenatal_Processing\PV2\Cannabis_PV2\NewToolboxUpdated_allGLMmodels' secondlevelAnalysis_exported
+T_temp = table(repmat(SubjStats(1).demographics.values(9),80,1), repmat(SubjStats(1).demographics.values(8),80,1), SubjStats(1).variables.source, SubjStats(1).variables.detector, SubjStats(1).variables.type, SubjStats(1).variables.cond, SubjStats(1).beta, 'VariableNames', {'subjectID', 'group', 'source','detector', 'type', 'cond', 'beta'});
+for sID = 2:size(transpose(SubjStats)) 
+    T_temp_loop = table(repmat(SubjStats(sID).demographics.values(9),80,1), repmat(SubjStats(sID).demographics.values(8),80,1), SubjStats(sID).variables.source, SubjStats(sID).variables.detector, SubjStats(sID).variables.type, SubjStats(sID).variables.cond, SubjStats(sID).beta, 'VariableNames', {'subjectID', 'group', 'source','detector', 'type', 'cond', 'beta'}); 
+    T_temp = [T_temp ; T_temp_loop]; 
+end
+writetable(T_temp,'Y:\2_Individual_Projects\RISE_PV1_CannabisCry\Prenatal_Processing\PV2\Cannabis_PV2\NewToolboxUpdated_allGLMmodels\secondlevelAnalysis_exported\exportedforSPSS.xls')
