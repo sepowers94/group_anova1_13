@@ -1,0 +1,77 @@
+for the pipeline of infantCry and infantNoise 
+could you please replace the lines of
+
+" onset_firststi = data.stimulus.values{1,val6}.onset(1); 
+     %disp(onset_firststi);
+     %onset_laststi = data.stimulus.values{1,val7}.onset(10);
+     [z1,z2] = size(data.stimulus.values{1,val7}.onset);
+     display(z1);
+     onset_laststi = data.stimulus.values{1,val7}.onset(z1);
+
+     data = raw(s).data(round((onset_firststi-pre_Baseline)*fs):round((onset_laststi+post_Baseline)*fs),:);"
+
+into
+
+"onset_firststi_val6 = data.stimulus.values{1,val6}.onset(1); 
+     onset_firststi_val7 = data.stimulus.values{1,val7}.onset(1); 
+
+     if onset_firststi_val6 < onset_firststi_val7
+         onset_firststi = onset_firststi_val6
+     else
+         onset_firststi = onset_firststi_val7
+     end
+     disp(onset_firststi);
+     %onset_laststi = data.stimulus.values{1,val7}.onset(10);
+     [z1_val6,z2_val6] = size(data.stimulus.values{1,val6}.onset);
+     [z1_val7,z2_val7] = size(data.stimulus.values{1,val7}.onset);
+
+
+     onset_laststi_val6 = data.stimulus.values{1,val6}.onset(z1_val6);
+     onset_laststi_val7 = data.stimulus.values{1,val7}.onset(z1_val7);
+
+     if onset_laststi_val6 > onset_laststi_val7
+         display(onset_laststi_val6);
+         data = raw(s).data(round((onset_firststi-pre_Baseline)*fs):round((onset_laststi_val6+post_Baseline)*fs),:);
+     else
+         display(onset_laststi_val7);
+         data = raw(s).data(round((onset_firststi-pre_Baseline)*fs):round((onset_laststi_val7+post_Baseline)*fs),:);
+     end  "
+
+
+
+%%%for the pipeline of infant pic
+%%%could you please replace the lines into
+
+"  onset_firststi_val8 = data.stimulus.values{1,val8}.onset(1); 
+    onset_firststi_val9 = data.stimulus.values{1,val9}.onset(1); 
+    onset_firststi_val10 = data.stimulus.values{1,val10}.onset(1); 
+
+    if onset_firststi_val8 < onset_firststi_val10 && onset_firststi_val8 < onset_firststi_val9
+        onset_firststi = onset_firststi_val8
+    elseif onset_firststi_val9 < onset_firststi_val8 && onset_firststi_val9 < onset_firststi_val10
+        onset_firststi = onset_firststi_val9
+    else 
+        onset_firststi = onset_firststi_val10
+    end
+    disp(onset_firststi);
+
+    %onset_laststi = data.stimulus.values{1,val7}.onset(10);
+    [z1_val8,z2_val8] = size(data.stimulus.values{1,val8}.onset);
+    [z1_val9,z2_val9] = size(data.stimulus.values{1,val9}.onset);
+    [z1_val10,z2_val10] = size(data.stimulus.values{1,val10}.onset);
+
+    
+    onset_laststi_val8 = data.stimulus.values{1,val8}.onset(z1_val8);
+    onset_laststi_val9 = data.stimulus.values{1,val9}.onset(z1_val9);
+    onset_laststi_val10 = data.stimulus.values{1,val10}.onset(z1_val10);
+   
+    if onset_laststi_val8 > onset_laststi_val9 && onset_laststi_val8 > onset_laststi_val10
+        display(onset_laststi_val8);
+        data = raw(s).data(round((onset_firststi-pre_Baseline)*fs):round((onset_laststi_val8+post_Baseline)*fs),:);
+    elseif onset_laststi_val9 > onset_laststi_val8 && onset_laststi_val9 > onset_laststi_val10
+        display(onset_laststi_val9);
+        data = raw(s).data(round((onset_firststi-pre_Baseline)*fs):round((onset_laststi_val9+post_Baseline)*fs),:);
+    else
+        display(onset_laststi_val10);
+        data = raw(s).data(round((onset_firststi-pre_Baseline)*fs):round((onset_laststi_val10+post_Baseline)*fs),:);
+    end  "
